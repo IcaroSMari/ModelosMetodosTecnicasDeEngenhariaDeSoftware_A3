@@ -1,0 +1,271 @@
+// ============================================
+// frontend/src/pages/LoginPage.jsx
+// ============================================
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen } from 'lucide-react';
+import { LoginForm } from '../components/Auth/LoginForm';
+import { Alert } from '../components/Common/Alert';
+import { useAuth } from '../hooks/useAuth';
+
+export const LoginPage = () => {
+  const navigate = useNavigate();
+  const { login, loading, error } = useAuth();
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  const handleLogin = async (credentials) => {
+    const result = await login(credentials.email, credentials.password);
+    
+    if (result.success) {
+      setMessage('Login realizado com sucesso!');
+      setMessageType('success');
+      setTimeout(() => navigate('/home'), 1500);
+    } else {
+      setMessage(result.error || 'Erro ao fazer login');
+      setMessageType('error');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-blue-400 to-yellow-300 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div className="flex justify-center mb-6">
+          <div className="bg-purple-600 p-3 rounded-full">
+            <BookOpen size={32} className="text-white" />
+          </div>
+        </div>
+
+        <h1 className="text-3xl font-bold text-center mb-2">Booksfy</h1>
+        <p className="text-gray-600 text-center mb-6">Gerencie sua biblioteca pessoal</p>
+
+        {message && (
+          <Alert 
+            message={message} 
+            type={messageType}
+            onClose={() => setMessage('')}
+          />
+        )}
+
+        {error && (
+          <Alert 
+            message={error} 
+            type="error"
+            onClose={() => setMessage('')}
+          />
+        )}
+
+        <LoginForm onSubmit={handleLogin} isLoading={loading} />
+
+        <p className="text-center text-gray-600 mt-6">
+          Não tem conta? 
+          <button 
+            onClick={() => navigate('/register')}
+            className="text-purple-600 font-bold hover:underline ml-1"
+          >
+            Cadastre-se aqui
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/pages/RegisterPage.jsx
+// ============================================
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { BookOpen } from 'lucide-react';
+import { RegisterForm } from '../components/Auth/RegisterForm';
+import { Alert } from '../components/Common/Alert';
+import { useAuth } from '../hooks/useAuth';
+
+export const RegisterPage = () => {
+  const navigate = useNavigate();
+  const { register, loading, error } = useAuth();
+  const [message, setMessage] = useState('');
+  const [messageType, setMessageType] = useState('');
+
+  const handleRegister = async (data) => {
+    const result = await register(data.name, data.email, data.password);
+    
+    if (result.success) {
+      setMessage('Cadastro realizado com sucesso! Faça login para continuar.');
+      setMessageType('success');
+      setTimeout(() => navigate('/login'), 2000);
+    } else {
+      setMessage(result.error || 'Erro ao cadastrar');
+      setMessageType('error');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-blue-400 to-yellow-300 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div className="flex justify-center mb-6">
+          <div className="bg-purple-600 p-3 rounded-full">
+            <BookOpen size={32} className="text-white" />
+          </div>
+        </div>
+
+        <h1 className="text-3xl font-bold text-center mb-2">Booksfy</h1>
+        <p className="text-gray-600 text-center mb-6">Crie sua conta e gerencie sua biblioteca</p>
+
+        {message && (
+          <Alert 
+            message={message} 
+            type={messageType}
+            onClose={() => setMessage('')}
+          />
+        )}
+
+        {error && (
+          <Alert 
+            message={error} 
+            type="error"
+            onClose={() => setMessage('')}
+          />
+        )}
+
+        <RegisterForm onSubmit={handleRegister} isLoading={loading} />
+
+        <p className="text-center text-gray-600 mt-6">
+          Já tem conta? 
+          <button 
+            onClick={() => navigate('/login')}
+            className="text-purple-600 font-bold hover:underline ml-1"
+          >
+            Faça login aqui
+          </button>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/pages/HomePage.jsx
+// ============================================
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
+import { Navbar } from '../components/Layout/Navbar';
+import { SearchBar } from '../components/Library/SearchBar';
+import { Filters } from '../components/Library/Filters';
+import { BookCard } from '../components/Library/BookCard';
+import { Button } from '../components/Common/Button';
+import { useAuth } from '../hooks/useAuth';
+
+export const HomePage = () => {
+  const { user } = useAuth();
+  const [books, setBooks] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [genreFilter, setGenreFilter] = useState('');
+
+  const handleAddBook = () => {
+    // Implementar lógica de adicionar livro
+    console.log('Adicionar livro');
+  };
+
+  const handleEditBook = (bookId) => {
+    // Implementar lógica de editar livro
+    console.log('Editar livro:', bookId);
+  };
+
+  const handleDeleteBook = (bookId) => {
+    // Implementar lógica de deletar livro
+    console.log('Deletar livro:', bookId);
+  };
+
+  const filteredBooks = books.filter((book) => {
+    const matchesSearch = 
+      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = !statusFilter || book.status === statusFilter;
+    const matchesGenre = !genreFilter || book.genre === genreFilter;
+    
+    return matchesSearch && matchesStatus && matchesGenre;
+  });
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Minha Biblioteca</h1>
+            <p className="text-gray-600">{books.length} livro{books.length !== 1 ? 's' : ''} na sua coleção</p>
+          </div>
+          <Button 
+            onClick={handleAddBook}
+            className="flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Adicionar Livro
+          </Button>
+        </div>
+
+        <div className="bg-white rounded-lg p-6 shadow-sm mb-8 space-y-4">
+          <SearchBar onSearch={setSearchTerm} />
+          <Filters 
+            onStatusChange={setStatusFilter}
+            onGenreChange={setGenreFilter}
+          />
+        </div>
+
+        {filteredBooks.length === 0 ? (
+          <div className="bg-white rounded-lg p-12 text-center shadow-sm">
+            <div className="text-6xl mb-4">📚</div>
+            <p className="text-gray-600 text-lg">
+              {books.length === 0 
+                ? 'Sua biblioteca está vazia. Adicione seu primeiro livro!' 
+                : 'Nenhum livro encontrado com os filtros aplicados.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {filteredBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                onEdit={handleEditBook}
+                onDelete={handleDeleteBook}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-8 bg-purple-50 p-4 rounded-lg text-sm text-gray-600">
+          <p><strong>Usuário logado:</strong> {user?.name} ({user?.email})</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/pages/NotFoundPage.jsx
+// ============================================
+import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/Common/Button';
+
+export const NotFoundPage = () => {
+  const navigate = useNavigate();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-500 via-blue-400 to-yellow-300 flex items-center justify-center p-4">
+      <div className="text-center">
+        <h1 className="text-6xl font-bold text-white mb-4">404</h1>
+        <p className="text-xl text-white mb-8">Página não encontrada</p>
+        <Button 
+          onClick={() => navigate('/home')}
+          className="mx-auto"
+        >
+          Voltar à Biblioteca
+        </Button>
+      </div>
+    </div>
+  );
+};

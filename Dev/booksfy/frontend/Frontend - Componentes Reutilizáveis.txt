@@ -1,0 +1,412 @@
+// ============================================
+// frontend/src/components/Common/Button.jsx
+// ============================================
+export const Button = ({ 
+  children, 
+  onClick, 
+  disabled = false, 
+  variant = 'primary',
+  type = 'button',
+  className = '' 
+}) => {
+  const variants = {
+    primary: 'bg-gradient-to-r from-purple-600 to-purple-700 text-white hover:shadow-lg',
+    secondary: 'bg-gray-200 text-gray-800 hover:bg-gray-300',
+    danger: 'bg-red-600 text-white hover:bg-red-700',
+  };
+
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`font-bold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+    >
+      {children}
+    </button>
+  );
+};
+
+// ============================================
+// frontend/src/components/Common/Input.jsx
+// ============================================
+export const Input = ({ 
+  type = 'text', 
+  placeholder = '', 
+  value, 
+  onChange, 
+  label = '',
+  error = '',
+  required = false,
+  className = ''
+}) => {
+  return (
+    <div>
+      {label && (
+        <label className="block text-sm font-semibold mb-2 text-gray-700">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+      )}
+      <input
+        type={type}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        className={`w-full px-4 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 ${
+          error ? 'ring-2 ring-red-500' : ''
+        } ${className}`}
+      />
+      {error && <span className="text-red-500 text-sm mt-1 block">{error}</span>}
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/components/Common/Alert.jsx
+// ============================================
+export const Alert = ({ message, type = 'success', onClose }) => {
+  if (!message) return null;
+
+  const variants = {
+    success: 'bg-green-100 text-green-700 border-green-300',
+    error: 'bg-red-100 text-red-700 border-red-300',
+    warning: 'bg-yellow-100 text-yellow-700 border-yellow-300',
+    info: 'bg-blue-100 text-blue-700 border-blue-300',
+  };
+
+  return (
+    <div className={`p-4 rounded-lg border ${variants[type]} flex justify-between items-center mb-4`}>
+      <span>{message}</span>
+      {onClose && (
+        <button onClick={onClose} className="text-xl font-bold">
+          ×
+        </button>
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/components/Auth/LoginForm.jsx
+// ============================================
+import { useState } from 'react';
+import { Input } from '../Common/Input';
+import { Button } from '../Common/Button';
+import { Alert } from '../Common/Alert';
+import { validators } from '../../utils/validators';
+
+export const LoginForm = ({ onSubmit, isLoading }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    const validationErrors = validators.validateLogin(email, password);
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors({});
+    onSubmit({ email, password });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {message && (
+        <Alert 
+          message={message} 
+          type={message.includes('erro') ? 'error' : 'success'}
+          onClose={() => setMessage('')}
+        />
+      )}
+      
+      <Input
+        type="email"
+        label="Email"
+        placeholder="seu@email.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (errors.email) setErrors({ ...errors, email: '' });
+        }}
+        error={errors.email}
+        required
+      />
+
+      <Input
+        type="password"
+        label="Senha"
+        placeholder="••••••••"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (errors.password) setErrors({ ...errors, password: '' });
+        }}
+        error={errors.password}
+        required
+      />
+
+      <Button 
+        type="submit" 
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? 'Carregando...' : 'Entrar'}
+      </Button>
+
+      <p className="text-center text-purple-600 text-sm font-medium cursor-pointer hover:underline">
+        Esqueceu sua senha?
+      </p>
+    </form>
+  );
+};
+
+// ============================================
+// frontend/src/components/Auth/RegisterForm.jsx
+// ============================================
+import { useState } from 'react';
+import { Input } from '../Common/Input';
+import { Button } from '../Common/Button';
+import { Alert } from '../Common/Alert';
+import { validators } from '../../utils/validators';
+
+export const RegisterForm = ({ onSubmit, isLoading }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [errors, setErrors] = useState({});
+  const [message, setMessage] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    const validationErrors = validators.validateRegister(name, email, password, confirmPassword);
+    
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors({});
+    onSubmit({ name, email, password });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {message && (
+        <Alert 
+          message={message} 
+          type={message.includes('erro') ? 'error' : 'success'}
+          onClose={() => setMessage('')}
+        />
+      )}
+      
+      <Input
+        type="text"
+        label="Nome"
+        placeholder="Seu nome completo"
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          if (errors.name) setErrors({ ...errors, name: '' });
+        }}
+        error={errors.name}
+        required
+      />
+
+      <Input
+        type="email"
+        label="Email"
+        placeholder="seu@email.com"
+        value={email}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          if (errors.email) setErrors({ ...errors, email: '' });
+        }}
+        error={errors.email}
+        required
+      />
+
+      <Input
+        type="password"
+        label="Senha"
+        placeholder="••••••••"
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (errors.password) setErrors({ ...errors, password: '' });
+        }}
+        error={errors.password}
+        required
+      />
+
+      <Input
+        type="password"
+        label="Confirmar Senha"
+        placeholder="••••••••"
+        value={confirmPassword}
+        onChange={(e) => {
+          setConfirmPassword(e.target.value);
+          if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: '' });
+        }}
+        error={errors.confirmPassword}
+        required
+      />
+
+      <Button 
+        type="submit" 
+        disabled={isLoading}
+        className="w-full"
+      >
+        {isLoading ? 'Carregando...' : 'Cadastrar'}
+      </Button>
+    </form>
+  );
+};
+
+// ============================================
+// frontend/src/components/Layout/Navbar.jsx
+// ============================================
+import { BookOpen, LogOut } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+
+export const Navbar = () => {
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  return (
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-purple-600 p-2 rounded-lg">
+            <BookOpen size={24} className="text-white" />
+          </div>
+          <h2 className="text-2xl font-bold text-purple-600">Booksfy</h2>
+        </div>
+
+        <div className="flex items-center gap-8">
+          <button className="flex items-center gap-2 font-semibold text-gray-700 hover:text-purple-600 transition">
+            <BookOpen size={20} />
+            Biblioteca
+          </button>
+          <button className="flex items-center gap-2 font-semibold text-gray-700 hover:text-purple-600 transition">
+            📊
+            <span>Estatísticas</span>
+          </button>
+          <button className="flex items-center gap-2 font-semibold text-gray-700 hover:text-purple-600 transition">
+            👤
+            <span>Perfil</span>
+          </button>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 font-semibold text-gray-700 hover:text-red-600 transition"
+        >
+          <LogOut size={20} />
+          Sair
+        </button>
+      </div>
+    </nav>
+  );
+};
+
+// ============================================
+// frontend/src/components/Library/SearchBar.jsx
+// ============================================
+import { Search } from 'lucide-react';
+
+export const SearchBar = ({ onSearch, placeholder = 'Buscar por título ou autor…' }) => {
+  return (
+    <div className="relative">
+      <Search size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <input
+        type="text"
+        placeholder={placeholder}
+        onChange={(e) => onSearch(e.target.value)}
+        className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+      />
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/components/Library/Filters.jsx
+// ============================================
+import { ChevronDown } from 'lucide-react';
+
+export const Filters = ({ onStatusChange, onGenreChange }) => {
+  return (
+    <div className="flex gap-4">
+      <div className="relative flex-1">
+        <select 
+          onChange={(e) => onStatusChange(e.target.value)}
+          className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 appearance-none"
+        >
+          <option value="">Todos os status</option>
+          <option value="lido">Lido</option>
+          <option value="lendo">Lendo</option>
+          <option value="ler">Ler</option>
+        </select>
+        <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+      </div>
+
+      <div className="relative flex-1">
+        <select 
+          onChange={(e) => onGenreChange(e.target.value)}
+          className="w-full px-4 py-2 bg-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 appearance-none"
+        >
+          <option value="">Todos os gêneros</option>
+          <option value="ficção">Ficção</option>
+          <option value="romance">Romance</option>
+          <option value="mistério">Mistério</option>
+          <option value="tecnologia">Tecnologia</option>
+        </select>
+        <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// frontend/src/components/Library/BookCard.jsx
+// ============================================
+export const BookCard = ({ book, onEdit, onDelete }) => {
+  return (
+    <div className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition">
+      <div className="bg-gray-200 h-40 rounded-lg mb-4 flex items-center justify-center">
+        <span className="text-gray-400 text-sm">Capa do Livro</span>
+      </div>
+      <h3 className="font-bold text-gray-900 mb-1">{book.title}</h3>
+      <p className="text-gray-600 text-sm mb-3">{book.author}</p>
+      <div className="flex justify-between items-center">
+        <span className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded-full">
+          {book.status}
+        </span>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => onEdit(book.id)}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            Editar
+          </button>
+          <button 
+            onClick={() => onDelete(book.id)}
+            className="text-red-600 hover:text-red-800 text-sm font-medium"
+          >
+            Deletar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

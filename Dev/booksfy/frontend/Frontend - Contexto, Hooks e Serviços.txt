@@ -1,0 +1,313 @@
+// ============================================
+// frontend/src/context/AuthContext.jsx
+// ============================================
+import React, { createContext, useState, useEffect } from 'react';
+
+export const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+  // Verificar se existe token ao montar
+  useEffect(() => {
+    const savedToken = localStorage.getItem('token');
+    if (savedToken) {
+      setToken(savedToken);
+      fetchUser(savedToken);
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchUser = async (authToken) => {
+    try {
+      const response = await fetch(`${API_URL}/auth/user`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        setError(null);
+      } else {
+        localStorage.removeItem('token');
+        setToken(null);
+        setUser(null);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar usuário:', err);
+      setError('Erro ao buscar dados do usuário');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('token', data.token);
+        setToken(data.token);
+        setUser(data.user);
+        return { success: true };
+      } else {
+        setError(data.error || 'Erro ao fazer login');
+        return { success: false, error: data.error };
+      }
+    } catch (err) {
+      const errorMessage = 'Erro de conexão';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const register = async (name, email, password) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return { success: true };
+      } else {
+        setError(data.error || 'Erro ao cadastrar');
+        return { success: false, error: data.error };
+      }
+    } catch (err) {
+      const errorMessage = 'Erro de conexão';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+    setError(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, token, loading, error, login, register, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// ============================================
+// frontend/src/hooks/useAuth.js
+// ============================================
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth deve ser usado dentro de AuthProvider');
+  }
+  return context;
+};
+
+// ============================================
+// frontend/src/hooks/useFetch.js
+// ============================================
+import { useState, useEffect } from 'react';
+import { useAuth } from './useAuth';
+
+export const useFetch = (url, options = {}) => {
+  const { token } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        };
+
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, { ...options, headers });
+
+        if (!response.ok) {
+          throw new Error(`Erro ${response.status}`);
+        }
+
+        const result = await response.json();
+        setData(result);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (url) {
+      fetchData();
+    }
+  }, [url, token]);
+
+  return { data, loading, error };
+};
+
+// ============================================
+// frontend/src/services/api.js
+// ============================================
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+export const apiService = {
+  // Autenticação
+  login: async (email, password) => {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    return response.json();
+  },
+
+  register: async (name, email, password) => {
+    const response = await fetch(`${API_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    return response.json();
+  },
+
+  getUser: async (token) => {
+    const response = await fetch(`${API_URL}/auth/user`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.json();
+  },
+};
+
+// ============================================
+// frontend/src/utils/storage.js
+// ============================================
+export const storage = {
+  setToken: (token) => {
+    localStorage.setItem('token', token);
+  },
+
+  getToken: () => {
+    return localStorage.getItem('token');
+  },
+
+  removeToken: () => {
+    localStorage.removeItem('token');
+  },
+
+  setUser: (user) => {
+    localStorage.setItem('user', JSON.stringify(user));
+  },
+
+  getUser: () => {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  },
+
+  removeUser: () => {
+    localStorage.removeItem('user');
+  },
+
+  clear: () => {
+    localStorage.clear();
+  },
+};
+
+// ============================================
+// frontend/src/utils/validators.js
+// ============================================
+export const validators = {
+  isValidEmail: (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  },
+
+  isValidPassword: (password) => {
+    return password && password.length >= 6;
+  },
+
+  isValidName: (name) => {
+    return name && name.trim().length >= 2;
+  },
+
+  validateLogin: (email, password) => {
+    const errors = {};
+
+    if (!email) {
+      errors.email = 'Email é obrigatório';
+    } else if (!validators.isValidEmail(email)) {
+      errors.email = 'Email inválido';
+    }
+
+    if (!password) {
+      errors.password = 'Senha é obrigatória';
+    } else if (!validators.isValidPassword(password)) {
+      errors.password = 'Senha deve ter no mínimo 6 caracteres';
+    }
+
+    return errors;
+  },
+
+  validateRegister: (name, email, password, confirmPassword) => {
+    const errors = {};
+
+    if (!name) {
+      errors.name = 'Nome é obrigatório';
+    } else if (!validators.isValidName(name)) {
+      errors.name = 'Nome deve ter no mínimo 2 caracteres';
+    }
+
+    if (!email) {
+      errors.email = 'Email é obrigatório';
+    } else if (!validators.isValidEmail(email)) {
+      errors.email = 'Email inválido';
+    }
+
+    if (!password) {
+      errors.password = 'Senha é obrigatória';
+    } else if (!validators.isValidPassword(password)) {
+      errors.password = 'Senha deve ter no mínimo 6 caracteres';
+    }
+
+    if (password !== confirmPassword) {
+      errors.confirmPassword = 'As senhas não coincidem';
+    }
+
+    return errors;
+  },
+};

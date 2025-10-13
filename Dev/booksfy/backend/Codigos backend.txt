@@ -1,0 +1,300 @@
+// ============================================
+// backend/src/config/database.js
+// ============================================
+const mongoose = require('mongoose');
+
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGO_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB conectado: ${conn.connection.host}`);
+    return conn;
+  } catch (error) {
+    console.error(`Erro ao conectar MongoDB: ${error.message}`);
+    process.exit(1);
+  }
+};
+
+module.exports = connectDB;
+
+// ============================================
+// backend/src/models/User.js
+// ============================================
+const mongoose = require('mongoose');
+const bcrypt = require('bcrypt');
+
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Por favor, adicione um nome'],
+    trim: true,
+  },
+  email: {
+    type: String,
+    required: [true, 'Por favor, adicione um email'],
+    unique: true,
+    lowercase: true,
+    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Por favor, adicione um email válido'],
+  },
+  passwordHash: {
+    type: String,
+    required: [true, 'Por favor, adicione uma senha'],
+    minlength: 6,
+    select: false,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Middleware para hash de senha antes de salvar
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('passwordHash')) {
+    next();
+  }
+
+  try {
+    const salt = await bcrypt.genSalt(10);
+    this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Método para comparar senhas
+userSchema.methods.matchPassword = async function (passwordPlain) {
+  return await bcrypt.compare(passwordPlain, this.passwordHash);
+};
+
+module.exports = mongoose.model('User', userSchema);
+
+// ============================================
+// backend/src/middleware/auth.js
+// ============================================
+const jwt = require('jsonwebtoken');
+
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token não fornecido' });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token inválido ou expirado' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+module.exports = { authenticateToken };
+
+// ============================================
+// backend/src/controllers/authController.js
+// ============================================
+const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+
+// @desc    Registrar novo usuário
+// @route   POST /api/auth/register
+// @access  Public
+exports.register = async (req, res) => {
+  try {
+    const { name, email, password } = req.body;
+
+    // Validar entrada
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Todos os campos são obrigatórios' });
+    }
+
+    // Verificar se usuário já existe
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({ error: 'Este email já está cadastrado' });
+    }
+
+    // Validar comprimento da senha
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'A senha deve ter no mínimo 6 caracteres' });
+    }
+
+    // Criar novo usuário
+    const user = await User.create({
+      name,
+      email,
+      passwordHash: password,
+    });
+
+    res.status(201).json({
+      message: 'Usuário cadastrado com sucesso',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Fazer login
+// @route   POST /api/auth/login
+// @access  Public
+exports.login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validar entrada
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+    }
+
+    // Encontrar usuário e selecionar passwordHash
+    const user = await User.findOne({ email }).select('+passwordHash');
+    if (!user) {
+      return res.status(401).json({ error: 'Email ou senha inválidos' });
+    }
+
+    // Verificar senha
+    const isPasswordMatch = await user.matchPassword(password);
+    if (!isPasswordMatch) {
+      return res.status(401).json({ error: 'Email ou senha inválidos' });
+    }
+
+    // Criar JWT
+    const token = jwt.sign({ id: user._id, email: user.email }, process.env.JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Obter dados do usuário logado
+// @route   GET /api/auth/user
+// @access  Private
+exports.getUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) {
+      return res.status(404).json({ error: 'Usuário não encontrado' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// ============================================
+// backend/src/routes/auth.js
+// ============================================
+const express = require('express');
+const { register, login, getUser } = require('../controllers/authController');
+const { authenticateToken } = require('../middleware/auth');
+
+const router = express.Router();
+
+// Rotas públicas
+router.post('/register', register);
+router.post('/login', login);
+
+// Rotas privadas
+router.get('/user', authenticateToken, getUser);
+
+module.exports = router;
+
+// ============================================
+// backend/src/server.js
+// ============================================
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const connectDB = require('./config/database');
+const authRoutes = require('./routes/auth');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Conectar ao MongoDB
+connectDB();
+
+// Middlewares
+app.use(cors());
+app.use(express.json());
+
+// Rotas
+app.use('/api/auth', authRoutes);
+
+// Rota de teste
+app.get('/api/health', (req, res) => {
+  res.json({ message: 'Servidor rodando corretamente' });
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+});
+
+// ============================================
+// backend/package.json
+// ============================================
+{
+  "name": "booksfy-backend",
+  "version": "1.0.0",
+  "description": "Backend da aplicação Booksfy",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "keywords": ["books", "library", "management"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.0.0",
+    "bcrypt": "^5.1.0",
+    "jsonwebtoken": "^9.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
+
+// ============================================
+// backend/.env.example
+// ============================================
+PORT=5000
+MONGO_URI=mongodb://localhost:27017/booksfy
+JWT_SECRET=sua_chave_secreta_super_segura_aqui_mude_em_producao
+NODE_ENV=development
+
+// ============================================
+// backend/.gitignore
+// ============================================
+node_modules/
+.env
+.env.local
+npm-debug.log
+yarn-error.log
+.DS_Store
+dist/
+build/
